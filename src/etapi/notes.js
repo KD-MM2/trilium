@@ -8,6 +8,7 @@ const v = require('./validators.js');
 const searchService = require('../services/search/services/search.js');
 const SearchContext = require('../services/search/search_context.js');
 const zipExportService = require('../services/export/zip.js');
+const singleExportService = require('../services/export/single.js');
 const zipImportService = require('../services/import/zip.js');
 
 function register(router) {
@@ -142,9 +143,14 @@ function register(router) {
     eu.route(router, 'get' ,'/etapi/notes/:noteId/export', (req, res, next) => {
         const note = eu.getAndCheckNote(req.params.noteId);
         const format = req.query.format || "html";
+        const type = req.query.type || "zip";
 
         if (!["html", "markdown"].includes(format)) {
             throw new eu.EtapiError(400, "UNRECOGNIZED_EXPORT_FORMAT", `Unrecognized export format '${format}', supported values are 'html' (default) or 'markdown'.`);
+        }
+
+        if (!["zip", "single"].includes(type)) {
+            throw new eu.EtapiError(400, "UNRECOGNIZED_EXPORT_TYPE", `Unrecognized export type '${type}', supported values are 'zip' (default) or 'single'.`);
         }
 
         const taskContext = new TaskContext('no-progress-reporting');
@@ -153,7 +159,10 @@ function register(router) {
         // (e.g. branchIds are not seen in UI), that we export "note export" instead.
         const branch = note.getParentBranches()[0];
 
-        zipExportService.exportToZip(taskContext, branch, format, res);
+        if (type === "zip")
+            zipExportService.exportToZip(taskContext, branch, format, res);
+        else if (type === "single")
+            singleExportService.exportSingleNote(taskContext, branch, format, res);
     });
 
     eu.route(router, 'post' ,'/etapi/notes/:noteId/import', (req, res, next) => {
